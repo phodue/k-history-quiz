@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>중2 역사 퀴즈: 발해부터 삼별초까지</title>
+  <title>중2 역사 퀴즈</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -131,6 +131,14 @@
     }
     .feedback.good { display: block; background: #dcfce7; border: 1px solid #86efac; color: #14532d; }
     .feedback.bad { display: block; background: #fee2e2; border: 1px solid #fecaca; color: #7f1d1d; }
+    .option .note {
+      display: none;
+      margin-top: 4px;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+    .option.show-note .note { display: block; }
+    .option.correct .note, .option.wrong .note { color: #374151; }
     .explain {
       margin-top: 6px;
       color: #374151;
@@ -149,6 +157,8 @@
     }
     summary { cursor: pointer; font-weight: 700; }
     .hidden { display: none; }
+    .pickers { display: flex; gap: 8px; flex-wrap: wrap; }
+    .error { background:#fef3c7; border:1px solid #fcd34d; color:#78350f; border-radius:14px; padding:12px 14px; }
     @media (max-width: 640px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
       header h1 { font-size: 22px; }
@@ -158,8 +168,8 @@
 </head>
 <body>
   <header>
-    <h1>중2 역사 퀴즈: 발해부터 삼별초까지</h1>
-    <p>발해의 발전 · 고려 건국 · 문벌 귀족 · 무신정권 · 몽골 침입 · 삼별초</p>
+    <h1 id="pageTitle">중2 역사 퀴즈</h1>
+    <p id="pageDesc">학기를 고르고 문제를 풀어 보세요.</p>
   </header>
 
   <main>
@@ -167,20 +177,12 @@
       <div class="row">
         <div>
           <span class="pill">학습 모드</span>
-          <p class="muted">단원을 고르고 문제를 풀어 보세요. 틀린 문제는 자동으로 오답노트에 저장됩니다.</p>
+          <p class="muted">학기와 단원을 고르고 문제를 풀어 보세요. 틀린 문제는 자동으로 오답노트에 저장됩니다.</p>
         </div>
-        <div>
+        <div class="pickers">
+          <select id="semesterSelect" title="학기 선택" onchange="changeSemester(this.value)"></select>
           <select id="categorySelect" title="단원 선택">
             <option value="all">전체 범위</option>
-            <option value="발해">발해</option>
-            <option value="통일신라">통일신라</option>
-            <option value="고려 건국">고려 건국</option>
-            <option value="고려 제도">고려 제도</option>
-            <option value="대외 관계">대외 관계</option>
-            <option value="지배층의 갈등">지배층의 갈등</option>
-			<option value="대외 관계">고려의 해외교류</option>
-            <option value="무신정권">무신정권</option>
-            <option value="몽골 침입·삼별초">몽골 침입·삼별초</option>
           </select>
         </div>
       </div>
@@ -189,6 +191,7 @@
         <button class="ghost" onclick="startWrongOnly()">오답만 다시 풀기</button>
         <button onclick="resetAll()">기록 초기화</button>
       </div>
+      <div id="loadError" class="error hidden" style="margin-top:12px;"></div>
     </section>
 
     <section class="card">
@@ -213,121 +216,17 @@
 
     <section class="card">
       <h2 style="margin-top:0;">오답노트</h2>
-      <p class="muted">틀린 문제는 여기에 쌓입니다. 다시 맞히면 자동으로 유지되지는 않으니, 필요하면 기록 초기화를 눌러 주세요.</p>
+      <p class="muted">지금 고른 학기에서 틀린 문제가 여기에 쌓입니다. 비우려면 기록 초기화를 눌러 주세요.</p>
       <div id="wrongList" class="wrong-list"></div>
     </section>
   </main>
 
   <script>
-    const questions = [
-      {cat:"발해", q:"발해를 건국한 인물은?", a:"대조영", opts:["왕건","대조영","궁예","견훤"], exp:"발해는 698년 대조영이 고구려 유민과 말갈 세력을 기반으로 세웠다."},
-	  {cat:"발해", q:"무왕의 업적이 아닌 것은?", a:"당의 문물을 받아들여 중앙과 지방의 통치 체제를 정비했다", opts:["독자적인 연호를 사용했다.", "옛 고구려와 부여 땅 대부분을 차지했다", "일본과 친선관계를 맺었다", "당의 문물을 받아들여 중앙과 지방의 통치 체제를 정비했다"], exp:"무왕은 당과 대립했다."},
-      {cat:"발해", q:"무왕 때 발해가 당을 견제하며 공격한 지역은?", a:"산둥 반도", opts:["요동 지방","산둥 반도","한강 유역","동북 9성"], exp:"무왕은 장문휴를 보내 당의 산둥 반도를 공격했다."},
-      {cat:"발해", q:"무왕의 대외 정책으로 알맞은 것은?", a:"당과 대립하고 일본과 교류했다.", opts:["당과만 친선 관계를 맺었다.","당과 대립하고 일본과 교류했다.","신라에 항복했다.","거란과 연합했다."], exp:"무왕은 당과 대립하면서 일본과 교류해 당을 견제했다."},
-      {cat:"발해", q:"문왕 때의 특징으로 알맞은 것은?", a:"당과 친선 관계를 회복하고 제도를 정비했다.", opts:["몽골과 강화했다.","당과 친선 관계를 회복하고 제도를 정비했다.","무신정변을 일으켰다.","후삼국을 통일했다."], exp:"문왕은 당의 제도와 문화를 받아들이며 발해의 통치 체제를 정비했다."},
-	  {cat:"발해", q:"당은 발해의 전성기에 '바다 동쪽의 융성한 나라'라고 뜻의 (------)라고 불렀다.", opts:["해동성국","정동행성","성동격서","동방예의지국"], exp:"해동성국은 발해를 대표하는 호칭이다."},
-      {cat:"발해", q:"발해가 전성기를 맞아 '해동성국'이라 불린 시기의 왕은?", a:"선왕", opts:["무왕","문왕","선왕","성종"], exp:"선왕 때 발해는 영토를 크게 넓히고 전성기를 맞아 해동성국이라 불렸다."},
-	  {cat:"발해", q:"발해의 교육기관은?", a:"주자감", opts:["국학", "주자감", "국자감", "태학"], exp:"태학(고구려), 국학(통일신라), 주자감(발해), 국자감(고려), 성균관(고려말~조선)"},
-      {cat:"발해", q:"발해의 중앙 정치 제도는?", a:"3성 6부", opts:["2성 6부","3성 6부","5도 양계","교정도감"], exp:"발해는 당의 제도를 참고해 3성 6부 체제를 운영했다."},
-	  {cat:"발해", q:"발해의 지방 행정 구역은?", a:"15부", opts:["2성 6부", "3성 6부", "15부", "5경"], exp:"발해는 전국을 15부로 나누고 부 아래 주를 설치하여 지방관을 파견했다."},
-      {cat:"발해", q:"발해를 멸망시킨 나라는?", a:"요(거란)", opts:["금","당","요(거란)","몽골"], exp:"발해는 926년 요(거란)의 공격으로 멸망했다."},
-	  {cat:"발해", q:"발해의 가장 오랜 기간 수도는?", a:"상경성", opts:["중경성","상경성","장안성","국내성"], exp:"상경성은 당의 장안성을 모방해 지었다"},
-	  {cat:"발해", q:"당의 산둥반도에 설치된 발해인 숙소는?", a:"발해관", opts:["발해관","발해방","신라관","신라방"], exp:"발해관은 당의 산둥반도에 설치되었다."},
-	  {cat:"발해", q:"발해가 넓은 영토를 관리하고 외교와 교역을 하기 위해 설치한 것은?", a:"발해5도", opts:["5경","발해5도","발해관","동북9성"], exp:"발해에는 넓은 영토를 연결하는 주요 교통로인 발해 5도가 있었다."},
-	  {cat:"발해", q:"발해 성터에서 발견된 것으로, 중앙아시아와 교류했음을 입증하는 유물은?", a:"소그드 은화", opts:["십자가를 목에 걸고 있는 불상", "삼채 향로", "정효 공주 묘", "소그드 은화"], exp:"8세기 중앙아시아에 살았던 소그드인이 만든 은화이다"},
-	  {cat:"발해", q:"발해 문화 유물 중 고구려 양식을 계승한 것은?", a:"이불병좌상", opts:["이불병좌상", "말갈계 토기", "삼채 향로", "영광탑"], exp:"이불병좌상은 두 명의 부처가 나란히 앉은 불상이다"},
-	  {cat:"발해", q:"발해 문화 유물 중 고구려 문화 영향이 아닌 것은?", a:"삼채 향로", opts:["쪽구들", "이불병좌상", "돌무덤", "삼채 향로"], exp:"삼채 향로는 당의 삼채 기법을 받아들여 세 가지 색의 유약을 입혔다."},
-	  {cat:"발해", q:"발해 문화 유물 중 당 문화 영향이 아닌 것은?", a:"이불병좌상", opts:["정효 공주 묘", "영광탑", "이불병좌상", "삼채 향로"], exp:"삼채 향로는 당의 삼채 기법을 받아들여 세 가지 색의 유약을 입혔다."},
-	  
-	  {cat:"통일신라", q:"당의 외국인 대상 관리 선발 시험은?", a:"빈공과", opts:["과거제","빈공과","신라방","발해관"], exp:"당의 빈공과는 외국인을 대상으로 한 관리 선발 시험이다"},
-	  {cat:"통일신라", q:"통일신라에서 당의 빈공과에 합격한 대표적 인물은?", a:"최치원", opts:["오소도","김부식","최치원","대봉예"], exp:"872년 발해의 오소도가 빈공과에 수석합격하였고, 2년 뒤 신라의 최치원이 수석합격하였다. 대봉예는 당에 사신으로 간 발해의 왕자이다."},
-	  {cat:"통일신라", q:"8세기 후반 진골 귀족의 반란으로 살해된 왕은?", a:"혜공왕", opts:["경순왕","문무왕","혜공왕","흥덕왕"], exp:"혜공왕이 살해된 후 왕위 계승 싸움이 잇다라 일어나 150년간 왕이 20명이나 바뀌었다"},
-	  {cat:"통일신라", q:"신라 후반 귀족들이 부를 쌓고자 부활시킨 제도는?", a:"녹읍", opts:["사병 해체","녹읍","6두품","사치품 폐지"], exp:"녹읍으로 부를 쌓아 사병까지 운영했다"},
-	  {cat:"통일신라", q:"신라 후반 귀족을 견제한 왕과 그 제도가 아닌 것은?", a:"골품제 폐지", opts:["흥덕왕", "사치품 금지령", "지방 촌주를 4~5두품으로 대우", "골품제 폐지"], exp:"신라는 골품제의 한계를 극복하지 못했다"},
-	  {cat:"통일신라", q:"신라 후반 지방에서 새로이 나타난 세력은?", a:"호족", opts:["호족","문벌","권문세족","6두품"], exp:"지방 호족이 등장하여 골품제에 불만인 6두품과 손을 잡았다."},
-	  {cat:"통일신라", q:"신라 후반 일어난 농민 봉기는?", a:"원종과 애노의 난", opts:["삼별초의 난", "원종과 애노의 난", "김헌창의 난", "묘청의 난"], exp:"김헌창은 왕위를 쟁탈한 진골 귀족이다."},
-	  {cat:"통일신라", q:"당의 주요 항구에 만들어진 신라인 거주지는?", a:"신라방", opts:["발해관","발해방","신라관","신라방"], exp:"신라방은 당의 주요 항구에 만들어졌다."},
-	  {cat:"통일신라", q:"통일 신라의 주요 유물 중 일본과 관련된 유물은?", a:"경주 월지 금동 초심지 가위", opts:["경주 월지 금동 초심지 가위","원성왕릉 무인석", "불국사 삼층 석탑", "석굴암"], exp:"유사한 가위가 일본 고툐 쇼소인에서 발견됐다."},
-	  {cat:"통일신라", q:"통일 신라의 주요 유물 중 서역과 관련된 유물은?", a:"원성왕릉 무인석", opts:["경주 월지 금동 초심지 가위","원성왕릉 무인석", "불국사 삼층 석탑", "석굴암"], exp:"머리 두건(터번)과 얼굴 모양이 서역인의 모습을 하고 있어 신라의 국제 교류를 보여준다."},
-	  {cat:"통일신라", q:"신라 승려 중 인도와 서역을 둘러보고 풍습을 기록한 사람은?", a:"혜초", opts:["원효","의상","혜초","묘청"], exp:"승려 혜초는 당을 거쳐 인도와 서역을 둘러본 뒤 그 지역의 풍습을 기록한 왕오천축국전을 남겼다."},
-	  {cat:"통일신라", q:"통일신라 유물 중 인도와 서역의 풍습을 기록한 것은?", a:"왕오천축국전", opts:["왕오천축국전","삼국사기","삼국유사","제왕운기"], exp:"승려 혜초는 당을 거쳐 인도와 서역을 둘러본 뒤 그 지역의 풍습을 기록한 왕오천축국전을 남겼다."},
-	  {cat:"통일신라", q:"통일신라의 교육기관은?", a:"국학", opts:["국학", "주자감", "국자감", "태학"], exp:"태학(고구려), 국학(통일신라), 주자감(발해), 국자감(고려), 성균관(고려말~조선)"},
-	  {cat:"통일신라", q:"원효가 '나무아미타불'을 외우면 누구나 극락에 갈 수 있다고 전파한 사상은?", a:"아미타 신앙", opts:["화엄 사상","아미타 신앙","풍수지리설","선종 사상"], exp:"원효는 불교 종파들의 사상적 대립을 해소하기 위해 노력했다."},
-	  {cat:"통일신라", q:"의상이 '하나가 전체요, 전체가 하나'라고 전파한 사상은?", a:"화엄 사상", opts:["화엄 사상","아미타 신앙","풍수지리설","선종 사상"], exp:"의상의 화엄 사상은 통일 직후 사회 통합에 기였다."},
-	  {cat:"통일신라", q:"인도와 중국의 석굴 사원에서 영향을 받은 신라 유물은?", a:"석굴암", opts:["석굴암","다보탑","불국사 삼층 석탑", "무구정광대다라니경"], exp:"석굴암은 신라의 수준 높은 조각 및 건축 기술을 보여준다."},
-	  {cat:"통일신라", q:"신라 말기에 유행한 사상으로, 누구나 참선으로 깨달음을 얻어 부처가 될 수 있다고 한 사상은?", a:"선종", opts:["교종","아미타 신앙","화엄 사상","선종"], exp:"호족은 선종 사상이 백성을 끌어들이는 데 도움이 된다고 생각해 선종 사찰을 후원했다."},
-	  {cat:"통일신라", q:"불국사 삼층 석탑에서 발견된 세계 최초의 목판 인쇄물은?", a:"무구정광대다라니경", opts:["팔만대장경","무구정광대다라니경","왕오천축국전","직지심체요절"], exp:"직지심체요절은 고려 시대에 만들어진 세계 최초의 금속 활자 인쇄물이다."},
-	  
-      {cat:"고려 건국", q:"후백제를 세운 인물은?", a:"견훤", opts:["견훤","궁예","왕건","최충헌"], exp:"견훤은 완산주를 중심으로 후백제를 세웠다."},
-      {cat:"고려 건국", q:"후고구려를 세운 인물은?", a:"궁예", opts:["궁예","왕건","대조영","서희"], exp:"궁예는 후고구려를 세웠고, 나중에 국호를 마진·태봉으로 바꾸었다."},
-      {cat:"고려 건국", q:"고려를 건국한 해와 인물의 조합으로 맞는 것은?", a:"918년, 왕건", opts:["698년, 대조영","918년, 왕건","936년, 견훤","1170년, 정중부"], exp:"왕건은 918년에 고려를 건국했다."},
-      {cat:"고려 건국", q:"고려가 후삼국을 통일한 순서는?", a:"후고구려 멸망 -> 신라 멸망 -> 후백제 멸망", opts:["후백제 멸망 -> 신라 멸망 -> 후고구려 멸망","신라 멸망 -> 후고구려 멸망 -> 후백제 멸망","후고구려 멸망 -> 후백제 멸망 -> 신라 멸망","후고구려 멸망 -> 신라 멸망 -> 후백제 멸망"], exp:"왕건이 궁예의 폭정에 반발하여 918년에 고려를 세웠고, 935년 신라가 항복하고, 936년 후백제를 멸망시키며 후삼국을 통일했다."},
-      {cat:"고려 건국", q:"태조 왕건의 정책으로 알맞지 않은 것은?", a:"무신정변 주도", opts:["호족 포섭","북진 정책","훈요 10조","무신정변 주도"], exp:"무신정변은 1170년에 정중부 등 무신들이 일으킨 사건이다."},
-	  {cat:"고려 건국", q:"왕건이 수도를 옮긴 곳은?", a:"송악", opts:["완산주","금성","송악","철원"], exp:"완산주(후백제-전주), 금성(신라-경주), 송악(고려-개성), 철원(후고구려)"},
-	  {cat:"고려 건국", q:"훈요 10조의 내용이 아닌 것은?", a:"사성 정책", opts:["불교 장려", "서경(평양) 중시", "사성 정책", "민생 안정"], exp:"사성 정책은 훈요 10조의 내용은 아니다."},
-	  {cat:"고려 건국", q:"왕건의 호족 정책이 아닌 것은?", a:"음서제", opts:["음서제", "사성 정책", "기인 제도", "사심관 제도"], exp:"음서제는 고위 관리의 자손들이 과거를 치르지 않고 관직을 얻을 수 있는 제도이다."},
-
-      {cat:"고려 제도", q:"광종이 억울하게 노비가 된 사람을 양인으로 회복시킨 제도는?", a:"노비안검법", opts:["과거제","노비안검법","전시과","공음전"], exp:"노비안검법은 호족의 경제·군사 기반을 약화시키고 왕권을 강화했다."},
-      {cat:"고려 제도", q:"광종이 능력 있는 관리를 선발하기 위해 실시한 제도는?", a:"과거제", opts:["음서","과거제","향리제","정방"], exp:"과거제는 시험으로 관리를 뽑는 제도이다."},
-      {cat:"고려 제도", q:"성종 때 유교 정치 개혁을 건의한 인물은?", a:"최승로", opts:["최승로","최충헌","강감찬","윤관"], exp:"성종은 최승로의 시무 28조를 받아들여 유교적 통치 체제를 정비했다."},
-	  {cat:"고려 제도", q:"성종 때 최승로가 건의한 제도는?", a:"시무 28조", opts:["시무 28조", "중서문하성", "훈요 10조", "식목도감"], exp:"성종은 최승로의 시무 28조를 받아들여 유교적 통치 체제를 정비했다."},
-	  {cat:"고려 제도", q:"고려의 교육기관은?", a:"국자감", opts:["국학", "주자감", "국자감", "태학"], exp:"태학(고구려), 국학(통일신라), 주자감(발해), 국자감(고려), 성균관(고려말~조선)"},
-	  {cat:"고려 제도", q:"고려의 중앙 행정 조직이 아닌 것은?", a:"국자감", opts:["도병마사","식목도감","중추원","국자감"], exp:"국자감은 고려의 교육기관이다."},
-	  {cat:"고려 제도", q:"고려의 중앙 행정 조직 중 군사, 외교를 다룬 것은?", a:"도병마사", opts:["도병마사","식목도감","중추원","어사대"], exp:"도병마사(군사,외교)와 식목도감(법제,격식)은 고려의 독자적 기구이다."},
-	  {cat:"고려 제도", q:"고려의 중앙 행정 조직 중 법제, 격식을 다룬 것은?", a:"식목도감", opts:["도병마사","식목도감","중추원","어사대"], exp:"도병마사(군사,외교)와 식목도감(법제,격식)은 고려의 독자적 기구이다."},
-	  {cat:"고려 제도", q:"고려의 중앙 행정 조직 중 잘못된 정치를 비판하고 관리들의 부정을 감찰하는 역할은?", a:"대간", opts:["중서문하성","상서성","삼사","대간"], exp:"대간은 잘못된 정치를 비판하고 관리들의 부정을 감찰하는 역할을 담당했다."},
-	  {cat:"고려 제도", q:"고려의 지방 행정 조직을 나타내는 말은?", a:"5도 양계", opts:["3성 6부","2성 6부","5도 양계","삼별초"], exp:"고려는 일반 행정 구역인 5도와 군사적 성격이 강한 양계를 두었다."},
-	  {cat:"고려 제도", q:"고려의 지방 행정 조직이 아닌 것은?", a:"경기도", opts:["북계","동계","교주도","경기도"], exp:"수도 개경과 그 주변 지역을 '경기'라고 부르며 5도와 별개로 관리했다."},
-	  {cat:"고려 제도", q:"고려의 지방 조직 중 지방관이 없이 향리가 실무를 담당한 곳은?", a:"속현", opts:["주현","속현","향/부곡/소","양계"], exp:"주현은 지방관이 있고 속현은 지방관 대신 향리가 실무를 담당했다."},
-	  {cat:"고려 제도", q:"고려의 지방 조직 중 세금 부담이 크고 많은 차별을 받은 곳은?", a:"향/부곡/소", opts:["군현","경기","향/부곡/소","양계"], exp:"향/부곡/소는 많은 차별을 받아, 이후 여러 반란이 발생하였다."},
-      {cat:"고려 제도", q:"고려의 문벌 귀족이 관직을 세습하는 데 이용한 제도는?", a:"음서", opts:["음서","노비안검법","별무반","강화도 천도"], exp:"음서는 공신이나 고위 관리의 자손이 시험 없이 관직에 나갈 수 있는 제도였다."},
-
-      {cat:"대외 관계", q:"거란 1차 침입 때 외교 담판으로 강동 6주를 얻은 인물은?", a:"서희", opts:["서희","강감찬","윤관","최우"], exp:"서희는 거란 장수 소손녕과 담판하여 강동 6주를 확보했다."},
-	  {cat:"대외 관계", q:"거란의 2차 침입을 물리친 장군은?", a:"양규", opts:["양규","강감찬","서희","삼별초"], exp:"2차 침입 때는 개경이 함락되는 위기도 겪었으나 양규의 활약으로 거란을 물리쳤다."},
-	  {cat:"대외 관계", q:"거란의 3차 침입을 물리친 장군은?", a:"강감찬", opts:["양규","강감찬","서희","삼별초"], exp:"강감찬은 귀주에서 거란군을 크게 물리쳤다."},
-      {cat:"대외 관계", q:"거란의 3차 침입을 크게 물리친 전투는?", a:"귀주대첩", opts:["처인성 전투","귀주대첩","황산벌 전투","진포 대첩"], exp:"강감찬은 귀주에서 거란군을 크게 물리쳤다."},
-	  {cat:"대외 관계", q:"거란의 3차 침입 후 고려가 한 일은?", a:"천리장성", opts:["천리장성","조공 폐지","왜구 격퇴","강화도 천도"], exp:"전쟁 이후 고려는 천리장성을 쌓아 국경 수비를 강화했다."},
-      {cat:"대외 관계", q:"여진의 기병에 맞서 윤관이 조직한 부대는?", a:"별무반", opts:["삼별초","별무반","도방","정방"], exp:"윤관은 여진의 기병에 대응하기 위해 별무반을 조직했다."},
-      {cat:"대외 관계", q:"윤관이 여진을 정벌한 뒤 설치한 것은?", a:"동북 9성", opts:["강동 6주","동북 9성","12목","교정도감"], exp:"윤관은 여진을 정벌하고 동북 9성을 설치했다."},
-	  {cat:"대외 관계", q:"여진이 세운 나라는?", a:"금", opts:["요","금","말갈","서하"], exp:"여진은 금나라를 세우고 거란(요)을 멸망시켰다."},
-	  {cat:"대외 관계", q:"여진이 나라를 세울 당시 중국의 왕조는?", a:"송", opts:["당","송","원","명"], exp:"송나라는 금에 밀려 북송(금에게 멸망)과 남송으로 나뉘었고, 남송은 이후 몽골(원)에게 멸망하였다."},
-	  
-	  {cat:"지배층의 갈등", q:"성종 이후 통치 체제가 정비되면서 여러 대에 걸쳐 고위 관직을 차지한 것은?", a:"문벌", opts:["호족","문벌","권문세족","별무반"], exp:"경원 이씨는 문벌의 대표적인 가문이다"},
-	  {cat:"지배층의 갈등", q:"고려 대표 문벌이 난을 일으켜 권력을 장악한 사건은?", a:"이자겸의 난", opts:["묘청의 난","이자겸의 난","김부식의 난","삼별초의 난"], exp:"이자겸은 금과 조공, 책봉 관계를 맺고 권력을 유지하려 했으나 내부 분열로 진압되었다(1126)."},
-	  {cat:"지배층의 갈등", q:"이자겸의 난을 진압하고 묘청을 등용한 왕은?", a:"인종", opts:["광종","숙종","인종","성종"], exp:"성종 이후 문벌이 형성되었고, 숙종은 윤관 등을 등용해 문벌을 견제하려 했지만 큰 성과를 거두지 못했다. 인종 때 이자겸의 난을 진압하였다."},
-	  {cat:"지배층의 갈등", q:"묘청과 관련없는 것은?", a:"금나라와 화친", opts:["금나라와 화친", "서경 천도 주장", "풍수지리설", "고려왕을 황제로 칭하도록 건의"], exp:"묘청은 서경 천도와 금 정벌을 주장하였다"},
-	  {cat:"지배층의 갈등", q:"묘청의 난을 진압한 사람은?", a:"김부식", opts:["김부식", "정중부", "이자겸", "윤관"], exp:"김부식은 문벌 출신으로, 서경 천도를 반대하였다"},
-	  
-	  {cat:"고려의 해외교류", q:"고려의 대표적인 무역항으로 개경과 가까운 예성강 하구에 위치한 곳은?", a:"벽란도", opts:["서경","벽란도","능라도","청해진"], exp:"벽란도에 송, 일본, 동남아시아, 아랍 상인이 드나들었다"},
-	  {cat:"고려의 해외교류", q:"고려의 무역품 중 송으로부터 들여온 수입품은?", a:"비단, 차, 도자기, 서적", opts:["비단, 차, 도자기, 서적","금, 은, 인삼","말, 모피","수은, 향신료"], exp:"중국 송나라로부터 선진 문물을 수입하였다"},
-	  {cat:"고려의 해외교류", q:"고려의 무역품 중 거란, 여진에 판매한 수출품은?", a:"농기구, 곡식", opts:["금, 은, 인삼","말, 모피","유황, 수은","농기구, 곡식"], exp:"중국 송나라로부터 선진 문물을 수입하였다"},
-	  {cat:"고려의 해외교류", q:"고려의 무역품 중 아랍과 거래한 물품이 아닌 것은?", a:"인삼", opts:["비단","수은","향신료","인삼"], exp:"고려는 아랍에 금과 비단을 수출하고 수은과 향신료를 수입하였다."},
-	  {cat:"고려의 해외교류", q:"고려와 거란이 국교를 수립한 이후 (---)으로 화려하게 꾸미는 것이 고려 사회에 유행했다.", a:"거란풍", opts:["거란풍","사치풍","귀족풍","몽골풍"], exp:"거란풍으로 수레, 가마, 의복 등을 화려하게 꾸몄다"},
-	  	  
-      {cat:"무신정권", q:"무신정변의 배경으로 가장 알맞은 것은?", a:"문신 중심 사회에서 무신이 차별받았다.", opts:["발해 유민이 반란을 일으켰다.","문신 중심 사회에서 무신이 차별받았다.","몽골이 고려에 쳐들어왔다.","고려가 후삼국을 통일했다."], exp:"문벌 귀족 사회의 모순과 무신 차별이 무신정변의 중요한 배경이다."},
-	  {cat:"무신정권", q:"무신정변을 시작한 무신은 누구인가?", a:"정중부", opts:["이소응","정중부","최충헌","이의민"], exp:"이의방, 정중부 등이 정변을 일으켜 수많은 문신을 죽이고 의종을 폐위시켰다(1170),"},
-	  {cat:"무신정권", q:"최씨 무신정권 이전의 무신들의 회의 기구는?", a:"중방", opts:["상서성","어사대","중방","국자감"], exp:"무신들은 중방에서 나라의 중요한 일을 결정했으며 이후 최씨 정권에서 교정도감, 정방 등이 설치되었다."},
-      {cat:"무신정권", q:"최씨 무신정권의 최고 권력 기구는?", a:"교정도감", opts:["교정도감","상서성","어사대","중추원"], exp:"최충헌은 교정도감을 설치하여 권력을 장악했다."},
-      {cat:"무신정권", q:"최씨 무신정권에서 인사권을 담당한 기구는?", a:"정방", opts:["정방","도방","서방","삼사"], exp:"정방은 관리 임명 등 인사 행정을 담당했다."},
-      {cat:"무신정권", q:"무신정권 시기 노비 신분 해방을 꿈꾸며 일어난 사건은?", a:"만적의 난", opts:["만적의 난","묘청의 난","이자겸의 난","홍경래의 난"], exp:"만적은 최충헌의 노비였던 자로서, 만적의 난은 무신정권 시기 신분 해방 의식이 나타난 사건이다."},
-	  {cat:"무신정권", q:"무신정권 시기 향/소/부곡의 차별대우에 반기를 든 사건은?", a:"망이,망소이의 난", opts:["만적의 난","망이,망소이의 난","김사미의 난","효심의 난"], exp:"망이,망소이 형제는 향/소/부곡 중의 한 곳인 공주 명학소에서 난을 일으켰다. 김사미, 효심은 농민 봉기를 일으켰다."},
-
-      {cat:"몽골 침입·삼별초", q:"몽골 침입 때 고려 조정이 수도를 옮긴 곳은?", a:"강화도", opts:["진도","제주도","강화도","서경"], exp:"최우 정권은 몽골 기병이 섬 공격에 불리하다는 점을 이용해 강화도로 천도했다."},
-      {cat:"몽골 침입·삼별초", q:"몽골 장수 살리타가 전사한 전투는?", a:"처인성 전투", opts:["처인성 전투","귀주대첩","충주성 전투","황산벌 전투"], exp:"처인성 전투에서 김윤후 등이 활약했고 몽골 장수 살리타가 전사했다."},
-	  {cat:"몽골 침입·삼별초", q:"처인성과 충주성에서 몽골군과 싸운 사람은?", a:"김윤후", opts:["김부식","강감찬","양규","김윤후"], exp:"김윤후는 처인성에서 처인부곡 백성과 함께 몽골 장수 살리타를 사살했고, 이후 충주성에서 노비와 함께 몽골군을 물리쳤다."},
-      {cat:"몽골 침입·삼별초", q:"몽골 침입을 물리치고 나라를 지키려는 마음으로 만든 문화유산은?", a:"팔만대장경", opts:["직지심체요절","팔만대장경","무구정광대다라니경","첨성대"], exp:"팔만대장경은 몽골 침입 시기 불교의 힘으로 나라를 지키려는 염원을 담아 조판되었다."},
-      {cat:"몽골 침입·삼별초", q:"삼별초 항쟁의 이동 순서로 맞는 것은?", a:"강화도 → 진도 → 제주도", opts:["강화도 → 진도 → 제주도","진도 → 강화도 → 제주도","제주도 → 강화도 → 진도","개경 → 서경 → 강화도"], exp:"삼별초는 강화도에서 봉기한 뒤 진도, 제주도로 이동하며 항쟁했다."},
-      {cat:"몽골 침입·삼별초", q:"삼별초가 항쟁한 주된 이유는?", a:"고려 조정의 몽골과의 강화와 개경 환도에 반대했기 때문이다.", opts:["발해를 다시 세우기 위해서","고려 조정의 몽골과의 강화와 개경 환도에 반대했기 때문이다.","과거제 폐지를 요구했기 때문이다.","후백제 부흥을 위해서"], exp:"삼별초는 고려 정부가 몽골과 강화하고 개경으로 돌아가려 하자 이에 반대했다."},
-	  {cat:"몽골 침입·삼별초", q:"고려 왕실이 몽골과 협상한 이후 행한 일은?", a:"몽골 공주와 혼인", opts:["서경 천도","몽골 공주와 혼인","강화도 천도","동북 9성 건축"], exp:"원 황실의 부마가 된 충렬왕은 원을 이용해 왕권을 강화하려 했다."},
-	  {cat:"몽골 침입·삼별초", q:"원이 고려 정치에 간섭하고자 행한 일이 아닌 것은?", a:"고려 공주와 혼인하였다.", opts:["일본 원정을 위해 정동행성을 설치하였다.","금,은,인삼,매 등 각종 특산물을 요구하였다.","여성들을 공녀로 끌고 갔다.","고려 공주와 혼인하였다."], exp:"고려 왕을 몽골 공주와 혼인시켰다."},
-	  {cat:"몽골 침입·삼별초", q:"원이 일본 원정을 위해 설치한 것은?", a:"정동행성", opts:["동북 9성","강동 6주","정동행성","동녕부"], exp:"원은 일본 원정을 위해 정동행성을 설치하였다."},
-	  {cat:"몽골 침입·삼별초", q:"원이 고려 영토의 일부를 지배하기 위해 설치한 기관이 아닌 것은?", a:"웅진도독부", opts:["쌍성총관부","동녕부","탐라총관부","웅진도독부"], exp:"웅진도독부는 백제 멸망 후 당이 설치한 관청이다."},
-	  {cat:"몽골 침입·삼별초", q:"고려가 원으로부터 받아들인 문물이 아닌 것은?", a:"도자기", opts:["목화(면화)","농업 기술","화약 제조술","도자기"], exp:"도자기는 송 때에도 이미 주요 수입품이었다."},
-	  {cat:"몽골 침입·삼별초", q:"원으로부터 목화(면화)를 들여온 인물은?", a:"문익점", opts:["최무선","최충헌","문익점","김부식"], exp:"문익점이 목화씨를 숨겨들여와 널리 보급했다."},
-	  {cat:"몽골 침입·삼별초", q:"원으로부터 화약 제조술을 들여온 인물은?", a:"최무선", opts:["최무선","최충헌","문익점","김부식"], exp:"최무선은 화약 제조술을 들여와 왜구를 물리쳤다."},
-	  {cat:"몽골 침입·삼별초", q:"다음 중 원의 풍습인 몽골풍이 아닌 것은?", a:"저고리", opts:["변발", "철릭", "소주", "저고리"], exp:"원에도 고려의 옷(저고리, 치마)과 모자, 신발 등이 유행하고 쌈 음식이나 떡과 같은 먹을거리도 전해졌다."},
-	  {cat:"몽골 침입·삼별초", q:"원에 유행한 고려의 풍습을 일컫는 말은?", a:"고려양", opts:["몽골풍","거란풍","고려양","고려장"], exp:"원에 끌려간 여성들을 중심으로 전해진 고려의 풍습을 고려양이라고 한다."},
-    ];
+    // 문제는 data/ 폴더의 .md 파일에 있습니다. 학기 목록은 data/semesters.json.
+    const OLD_DEFAULT_SEM = "m2-1-final"; // 학기 구분 전에 저장된 오답노트는 1학기 기말 문제
+    let semesters = [];
+    let currentSem = null;
+    let questions = [];
 
     let pool = [];
     let index = 0;
@@ -335,31 +234,151 @@
     let correct = 0;
     let wrong = 0;
     let answered = false;
-    let wrongNotes = JSON.parse(localStorage.getItem("historyWrongNotes") || "[]");
+    let wrongNotes = loadWrongNotes();
 
-    function shuffle(arr) {
-      return [...arr].sort(() => Math.random() - 0.5);
+    function loadWrongNotes() {
+      try {
+        const arr = JSON.parse(localStorage.getItem("historyWrongNotes") || "[]");
+        return arr.map(x => ({ ...x, sem: x.sem || OLD_DEFAULT_SEM }));
+      } catch (e) { return []; }
     }
+    function saveWrongNotes() {
+      try { localStorage.setItem("historyWrongNotes", JSON.stringify(wrongNotes)); } catch (e) {}
+    }
+
+    // ---------- 마크다운 문제 파일 읽기 ----------
+    // # 제목 / > 설명 / ## 단원 / ### 문제 / - [x] 정답 / - [ ] 오답 / > 해설
+    function parseQuizMarkdown(text) {
+      const lines = text.replace(/<!--[\s\S]*?-->/g, "").split(/\r?\n/);
+      const result = { title: "", desc: "", questions: [] };
+      let cat = "", q = null;
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        if (line.startsWith("### ")) {
+          q = { cat, q: line.slice(4).trim(), a: null, opts: [], notes: {}, exp: "" };
+          result.questions.push(q);
+        } else if (line.startsWith("## ")) {
+          cat = line.slice(3).trim(); q = null;
+        } else if (line.startsWith("# ")) {
+          result.title = line.slice(2).trim();
+        } else if (/^[-*] \[( |x|X)\]/.test(line) && q) {
+          const isAnswer = /^[-*] \[(x|X)\]/.test(line);
+          const body = line.replace(/^[-*] \[( |x|X)\]\s*/, "");
+          const cut = body.indexOf(" — ");
+          const opt = (cut >= 0 ? body.slice(0, cut) : body).trim();
+          if (cut >= 0) q.notes[opt] = body.slice(cut + 3).trim();
+          q.opts.push(opt);
+          if (isAnswer) q.a = opt;
+        } else if (line.startsWith(">")) {
+          const t = line.replace(/^>\s?/, "").replace(/^해설\s*[:：]\s*/, "");
+          if (q) q.exp += (q.exp ? " " : "") + t;
+          else result.desc += (result.desc ? " " : "") + t;
+        }
+      }
+      result.questions = result.questions.filter(x => {
+        const ok = x.a && x.opts.length >= 2;
+        if (!ok) console.warn("정답이 없거나 보기가 부족한 문제는 건너뜀:", x.q);
+        return ok;
+      });
+      return result;
+    }
+
+    async function init() {
+      try {
+        semesters = await fetch("data/semesters.json", { cache: "no-cache" }).then(r => {
+          if (!r.ok) throw new Error(r.status); return r.json();
+        });
+      } catch (e) {
+        showError("학기 목록(data/semesters.json)을 불러오지 못했습니다. 파일을 컴퓨터에서 바로 열면(file://) 불러올 수 없으니, GitHub Pages 주소로 열어 주세요.");
+        return;
+      }
+      const sel = document.getElementById("semesterSelect");
+      sel.innerHTML = semesters.map(s => `<option value="${s.id}">${s.title}</option>`).join("");
+      const fromUrl = new URLSearchParams(location.search).get("s");
+      let saved = null;
+      try { saved = localStorage.getItem("historySemester"); } catch (e) {}
+      const first = [fromUrl, saved].find(id => semesters.some(s => s.id === id)) || semesters[0].id;
+      await changeSemester(first);
+    }
+
+    async function changeSemester(id) {
+      const sem = semesters.find(s => s.id === id);
+      if (!sem) return;
+      document.getElementById("semesterSelect").value = id;
+      try { localStorage.setItem("historySemester", id); } catch (e) {}
+      let parsed;
+      try {
+        const text = await fetch(sem.file, { cache: "no-cache" }).then(r => {
+          if (!r.ok) throw new Error(r.status); return r.text();
+        });
+        parsed = parseQuizMarkdown(text);
+      } catch (e) {
+        showError(`문제 파일(${sem.file})을 불러오지 못했습니다.`);
+        return;
+      }
+      hideError();
+      currentSem = id;
+      questions = parsed.questions;
+      document.getElementById("pageTitle").textContent = `중2 역사 퀴즈: ${parsed.title || sem.title}`;
+      document.getElementById("pageDesc").textContent = parsed.desc || "";
+      document.title = `역사 퀴즈 - ${sem.title}`;
+
+      const cats = [...new Set(questions.map(x => x.cat))];
+      document.getElementById("categorySelect").innerHTML =
+        `<option value="all">전체 범위 (${questions.length}문제)</option>` +
+        cats.map(c => `<option value="${c}">${c} (${questions.filter(x => x.cat === c).length})</option>`).join("");
+
+      pool = []; index = 0; correct = 0; wrong = 0;
+      resetQuestionBox();
+      renderStats();
+      renderWrongList();
+    }
+
+    function showError(msg) { const b = document.getElementById("loadError"); b.textContent = msg; b.classList.remove("hidden"); }
+    function hideError() { document.getElementById("loadError").classList.add("hidden"); }
+
+    // ---------- 퀴즈 ----------
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function semWrongNotes() { return wrongNotes.filter(x => x.sem === currentSem); }
 
     function startQuiz() {
       const cat = document.getElementById("categorySelect").value;
-      pool = questions.filter(x => cat === "all" || x.cat === cat);
-      pool = shuffle(pool);
+      pool = shuffle(questions.filter(x => cat === "all" || x.cat === cat));
       index = 0; correct = 0; wrong = 0;
       renderQuestion();
       renderStats();
     }
 
     function startWrongOnly() {
-      if (wrongNotes.length === 0) {
-        alert("아직 오답노트에 문제가 없습니다.");
+      const notes = semWrongNotes();
+      if (notes.length === 0) {
+        alert("이 학기 오답노트에 아직 문제가 없습니다.");
         return;
       }
-      const ids = new Set(wrongNotes.map(x => x.q));
+      const ids = new Set(notes.map(x => x.q));
       pool = shuffle(questions.filter(x => ids.has(x.q)));
       index = 0; correct = 0; wrong = 0;
       renderQuestion();
       renderStats();
+    }
+
+    function resetQuestionBox() {
+      document.getElementById("categoryPill").textContent = "대기 중";
+      document.getElementById("questionText").textContent = "퀴즈 시작 버튼을 눌러 주세요.";
+      document.getElementById("options").innerHTML = "";
+      document.getElementById("feedback").className = "feedback";
+      document.getElementById("feedback").innerHTML = "";
+      document.getElementById("checkBtn").disabled = true;
+      document.getElementById("nextBtn").disabled = true;
     }
 
     function renderQuestion() {
@@ -384,12 +403,20 @@
 
       document.getElementById("categoryPill").textContent = q.cat;
       document.getElementById("questionText").textContent = q.q;
-      const shuffledOpts = shuffle(q.opts);
       options.innerHTML = "";
-      shuffledOpts.forEach(opt => {
+      shuffle(q.opts).forEach(opt => {
         const btn = document.createElement("button");
         btn.className = "option";
-        btn.textContent = opt;
+        btn.dataset.opt = opt;
+        const label = document.createElement("div");
+        label.textContent = opt;
+        btn.appendChild(label);
+        if (q.notes && q.notes[opt]) {
+          const note = document.createElement("div");
+          note.className = "note";
+          note.textContent = "→ " + q.notes[opt];
+          btn.appendChild(note);
+        }
         btn.onclick = () => {
           if (answered) return;
           document.querySelectorAll(".option").forEach(b => b.classList.remove("selected"));
@@ -402,6 +429,10 @@
       renderStats();
     }
 
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
     function checkAnswer() {
       if (!selected || answered) return;
       answered = true;
@@ -410,18 +441,19 @@
       const feedback = document.getElementById("feedback");
 
       document.querySelectorAll(".option").forEach(btn => {
-        if (btn.textContent === q.a) btn.classList.add("correct");
-        else if (btn.textContent === selected) btn.classList.add("wrong");
+        btn.classList.add("show-note");
+        if (btn.dataset.opt === q.a) btn.classList.add("correct");
+        else if (btn.dataset.opt === selected) btn.classList.add("wrong");
       });
 
       if (isCorrect) {
         correct++;
         feedback.className = "feedback good";
-        feedback.innerHTML = `<b>정답!</b><div class="explain">${q.exp}</div>`;
+        feedback.innerHTML = `<b>정답!</b><div class="explain">${escapeHtml(q.exp)}</div>`;
       } else {
         wrong++;
         feedback.className = "feedback bad";
-        feedback.innerHTML = `<b>오답.</b> 정답은 <b>${q.a}</b>입니다.<div class="explain">${q.exp}</div>`;
+        feedback.innerHTML = `<b>오답.</b> 정답은 <b>${escapeHtml(q.a)}</b>입니다.<div class="explain">${escapeHtml(q.exp)}</div>`;
         addWrong(q);
       }
 
@@ -437,23 +469,24 @@
     }
 
     function addWrong(q) {
-      if (!wrongNotes.some(x => x.q === q.q)) {
-        wrongNotes.push({cat:q.cat, q:q.q, a:q.a, exp:q.exp});
-        localStorage.setItem("historyWrongNotes", JSON.stringify(wrongNotes));
+      if (!wrongNotes.some(x => x.sem === currentSem && x.q === q.q)) {
+        wrongNotes.push({ sem: currentSem, cat: q.cat, q: q.q, a: q.a, exp: q.exp });
+        saveWrongNotes();
       }
     }
 
     function renderWrongList() {
       const box = document.getElementById("wrongList");
-      if (wrongNotes.length === 0) {
+      const notes = semWrongNotes();
+      if (notes.length === 0) {
         box.innerHTML = `<p class="muted">아직 틀린 문제가 없습니다.</p>`;
         return;
       }
-      box.innerHTML = wrongNotes.map((x, i) => `
+      box.innerHTML = notes.map((x, i) => `
         <details>
-          <summary>${i + 1}. [${x.cat}] ${x.q}</summary>
-          <p><b>정답:</b> ${x.a}</p>
-          <p class="muted">${x.exp}</p>
+          <summary>${i + 1}. [${escapeHtml(x.cat)}] ${escapeHtml(x.q)}</summary>
+          <p><b>정답:</b> ${escapeHtml(x.a)}</p>
+          <p class="muted">${escapeHtml(x.exp)}</p>
         </details>
       `).join("");
     }
@@ -466,21 +499,18 @@
     }
 
     function resetAll() {
-      if (!confirm("점수와 오답노트를 초기화할까요?")) return;
-      wrongNotes = [];
-      localStorage.removeItem("historyWrongNotes");
+      const title = (semesters.find(s => s.id === currentSem) || {}).title || "";
+      if (!confirm(`${title} 점수와 오답노트를 초기화할까요?`)) return;
+      wrongNotes = wrongNotes.filter(x => x.sem !== currentSem);
+      saveWrongNotes();
       correct = 0; wrong = 0; index = 0; pool = [];
-      document.getElementById("categoryPill").textContent = "대기 중";
-      document.getElementById("questionText").textContent = "퀴즈 시작 버튼을 눌러 주세요.";
-      document.getElementById("options").innerHTML = "";
-      document.getElementById("feedback").className = "feedback";
-      document.getElementById("feedback").innerHTML = "";
+      resetQuestionBox();
       renderStats();
       renderWrongList();
     }
 
     renderStats();
-    renderWrongList();
+    init();
   </script>
 </body>
 </html>
