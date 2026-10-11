@@ -500,7 +500,7 @@
       }
       box.innerHTML = notes.map((x, i) => `
         <details>
-          <summary>${i + 1}. [${escapeHtml(x.cat)}] ${escapeHtml(x.q)}</summary>
+          <summary>${i + 1}. [${escapeHtml((questions.find(q => q.q === x.q) || x).cat)}] ${escapeHtml(x.q)}</summary>
           <p><b>정답:</b> ${escapeHtml(x.a)}</p>
           <p class="muted">${escapeHtml(x.exp)}</p>
         </details>
